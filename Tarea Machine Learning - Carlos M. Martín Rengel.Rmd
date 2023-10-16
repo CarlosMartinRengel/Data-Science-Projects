@@ -1,0 +1,462 @@
+---
+title: "Tarea Machine Learning"
+author: "Carlos Manuel Martín Rengel"
+output:
+  pdf_document: default
+  pdf_output: 
+    pdf_engine: xelatex
+  html_document: default
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introducción
+
+El archivo de datos que le presentamos contiene información sobre la diabetes.
+Los datos han sido tomados de: <https://www.kaggle.com/datasets/tigganeha4/diabetes-dataset-2019>.
+
+Para encontrar el archivo de datos que tiene que usar vaya a la carpeta **Machine Learning (asignaciones)** y allí encontrará otra con su nombre donde están los datos que le corresponden.
+El data_frame que hay dentro del archivo se llama *diabetes*.
+Todos los archivos son distintos, use exactamente el que le ha correspondido para evitar problemas.
+
+Tenemos dos posibles repuestas, la primera es una variable binaria que indica si el individuo es diabético o no y la segunda es el índice de masa corporal (BMI) que utilizaremos en una regresión.
+
+Disponemos de un total de 906 individuos.
+Puede encontrar información adicional en:
+
+Tigga, N. P., & Garg, S.
+(2020).
+Prediction of Type 2 Diabetes using Machine Learning Classification Methods.
+Procedia Computer Science, 167, 706-716.
+DOI: <https://doi.org/10.1016/j.procs.2020.03.336>
+
+El artículo se proporciona junto con los datos.
+
+Se trata de buscar qué factores influyen en la diabetes y el BMI (body mmass index) y si es posible predecirlas a partir del perfil de los individuos.
+
+En particular, ¿Influyen las variables independientes en la presencia de diabetes?.
+
+¿Es posible predecir aproximadamente el BMI a partir de las variables seleccionadas?
+?.
+
+## Instrucciones
+
+-   A continuación le mostramos, a grandes rasgos, los pasos que tiene que seguir.
+    Le recomendamos que utilice este mismo R Markdown para mostrar los resultados de forma que queden integrados los cálculos y los comentarios.
+    Si lo hace así, le regalo un punto extra.
+
+-   Si usa Markdown, suba también el PDF compilado, además del archivo original.
+
+-   Si no usa markdown, debe subir también el script de R con el que haga los cálculos y suba también los resultados en PDF convenientemente comentados.
+
+-   Las puntuaciones de los apartados son sobre 10.
+
+## Limpieza del archivo y colocación de las variables.
+
+Primero abrimos el archivo y cambiamos los nombres de las variables.
+En mi caso, las he puesto en español para facilitar la interpretación de los resultados.
+
+```{r}
+load("MARTIÌN.rda")
+head(diabetes)
+
+names(diabetes)
+
+colnames(diabetes)=c('Edad', 'Genero', 'D.Familiar', 'BPAlto', 'Actividad', 'IBM', 'Tabaco', 
+                     'Alcohol','Sueño', 'SProfundo', 'MedicinaRegular', 'ComidaBasura', 'Estres', 'NivelBP', 
+                     'Embarazos', 'Pdiabetes', 'FrecuenciaUrinaria', 'Diabetico')
+```
+
+Ahora miraremos el tipo de cada columna.
+
+```{r}
+
+Classes=sapply(diabetes,class)
+Classes
+
+```
+
+Algunas de estas variables tienen que ser nominales con varias categorías, como por ejemplo, género o edad.
+Procedemos a realizar la transformación:
+
+```{r}
+
+diabetes$Edad=factor(diabetes$Edad)
+levels(diabetes$Edad)<-c('40-49', '50-59', '60 o mas', 'Menos de 40')
+
+diabetes$Genero=factor(diabetes$Genero)
+levels(diabetes$Genero)<-c('Mujer', 'Hombre')
+
+diabetes$D.Familiar=factor(diabetes$D.Familiar)
+levels(diabetes$D.Familiar)<-c('No', 'Si')
+
+diabetes$BPAlto=factor(diabetes$BPAlto)
+levels(diabetes$BPAlto)<-c('No', 'Si')
+
+diabetes$Actividad=factor(diabetes$Actividad)
+levels(diabetes$Actividad)<-c('-30min', '+30min', 'Nada', '1h')
+
+diabetes$Tabaco=factor(diabetes$Tabaco)
+levels(diabetes$Tabaco)<-c('No', 'Si')
+
+diabetes$Alcohol=factor(diabetes$Alcohol)
+levels(diabetes$Alcohol)<-c('No', 'Si')
+
+diabetes$MedicinaRegular=factor(diabetes$MedicinaRegular)
+levels(diabetes$MedicinaRegular)<-c('No', 'Si')
+
+diabetes$ComidaBasura=factor(diabetes$ComidaBasura)
+levels(diabetes$ComidaBasura)<-c('Siempre', 'Ocasional', 'A menudo', 'Casi siempre')
+
+diabetes$Estres=factor(diabetes$Estres)
+levels(diabetes$Estres)<-c('Siempre', 'Nada', 'A veces', 'Casi siempre')
+
+diabetes$NivelBP=factor(diabetes$NivelBP)
+levels(diabetes$NivelBP)<-c('Alto', 'Bajo', 'Normal')
+
+diabetes$Pdiabetes=factor(diabetes$Pdiabetes)
+levels(diabetes$Pdiabetes)<-c('No', 'Si')
+
+diabetes$FrecuenciaUrinaria=factor(diabetes$FrecuenciaUrinaria)
+levels(diabetes$FrecuenciaUrinaria)<-c('No mucha', 'A menudo')
+
+diabetes$Diabetico=factor(diabetes$Diabetico)
+levels(diabetes$Diabetico)<-c('No', 'Si')
+
+```
+
+Ahora cambiamos las variables denominadas *interger* a *numeric* con el siguiente comando:
+
+```{r}
+
+Classes=sapply(diabetes,class)
+for (i in 1:ncol(diabetes))
+  if (Classes[i]=='integer') diabetes[[i]]=as.numeric(diabetes[[i]])
+Classes=sapply(diabetes,class)
+Classes
+
+```
+
+Ya tenemos la matriz completa, con toda la información en español y lista para el análisis.
+Podemos buscar los datos perdidos, pero en este caso, al estar la matriz completa, devuelve un resultado de 0.
+
+```{r}
+
+which(is.na(diabetes))
+
+```
+
+## Análisis descriptivo y visual de las vriables.
+
+Una vez están los datos preparados, procedemos a realizar un análisis descriptivo y visual de las variables.
+Primero, la funcion *summary* nos proporciona el mínimo, el máximo y los percentiles 25, 50 y 75.
+Tambien nos proporciona la media y la mediana.
+Solo lo aplicamos a las variables numéricas, ya que, en las otras, al ser nominales, no nos arrojaría unos resultados interpretables.
+
+```{r}
+
+summary(diabetes[,Classes=="numeric"])
+
+```
+
+Hecho esto, utilizamos los paquetes *ggplot2* y *gridExtra* para el análisis visual.
+Como ejemplo, he seleccionado las variables *Edad*, *Sueño*, *Actividad* e *IBM* para dibujar un diagrama de barras y lo he juntado en un panel.
+
+```{r}
+
+library(ggplot2)
+library(gridExtra)
+
+g1 = ggplot(diabetes, aes(x=Edad))+
+  geom_bar(stat="count", width=0.7, fill="black")+
+  theme_minimal()
+g2 = ggplot(diabetes, aes(x=Sueño))+
+  geom_bar(stat="count", width=0.7, fill="red")+
+  theme_minimal()
+g3 = ggplot(diabetes, aes(x=Actividad))+
+  geom_bar(stat="count", width=0.7, fill="green")+
+  theme_minimal()
+g4 = ggplot(diabetes, aes(x=IBM))+
+  geom_bar(stat="count", width=0.7, fill="steelblue")+
+  theme_minimal()
+grid.arrange(g1, g2, g3, g4, nrow = 2, ncol=2)
+
+```
+
+Viendo los graficos, observamos que la mayoria de individuos eran menores de 40 años, las horas de sueño suelen ser de 6 a 8 y en la actividad, predomina el realizar menos de una hora de ejercicio al día.
+
+Podemos observar las relaciones entre variables númericas mediante gráficos box-plot.
+
+```{r}
+p1 <- ggplot(diabetes, aes(x=Diabetico, y=IBM, color=Diabetico)) +
+  geom_boxplot()
+p2 <- ggplot(diabetes, aes(x=Diabetico, y=Sueño, color=Diabetico)) +
+  geom_boxplot()
+p3 <- ggplot(diabetes, aes(x=Diabetico, y=SProfundo, color=Diabetico)) +
+  geom_boxplot()
+p4 <- ggplot(diabetes, aes(x=Diabetico, y=Embarazos, color=Diabetico)) +
+  geom_boxplot()
+grid.arrange(p1, p2, p3, p4, nrow = 2, ncol=2)
+```
+
+Observamos que no hay mucha diferencia en entre diabéticos y no diabéticos, solo en la variable *IBM* podemos apreciar unos valores mas elevados en los diabéticos.
+
+Relizamos lo mismo para las variables nominales.
+Al ser muchas, realizamos dos tandas con 7 variables en cada una.
+
+```{r}
+library(ggmosaic)
+q1=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, Edad), fill=Diabetico))+  
+  labs(x = "Edad ", title='Edad')
+q2=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, Genero ), fill=Diabetico))+  
+  labs(x = "Genero ", title='Genero')
+q3=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico,D.Familiar ), fill=Diabetico))+  
+  labs(x = "D.Familiar ", title='D.Familiar')
+q4=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico,BPAlto ), fill=Diabetico))+  
+  labs(x = "BPAlto ", title='BPAlto')
+q5=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico,Actividad ), fill=Diabetico))+  
+  labs(x = "Actividad ", title='Actividad')
+q6=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico,Tabaco ), fill=Diabetico))+  
+  labs(x = "Tabaco ", title='Tabaco')
+q7=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico,Alcohol ), fill=Diabetico))+  
+  labs(x = "Alcohol ", title='Alcohol')
+```
+
+```{r warning=FALSE}
+grid.arrange(q1, q2, q3, q4, q5, q6, q7, nrow = 3, ncol=3)
+```
+
+En este caso, observamos que a más edad, más diabéticos hay.
+Tambien apreciamos que la variable *BPAlto* esta relacionada con la diabetes.
+En el resto de variables, no hay una distincion clara o reseñable.
+Continuamos con el resto de variables.
+
+```{r warning=FALSE}
+q8=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, MedicinaRegular), fill=Diabetico))+  
+  labs(x = "MedicinaRegular ", title='Medicina')
+q9=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, ComidaBasura), fill=Diabetico))+  
+  labs(x = "ComidaBasura ", title='ComidaBasura')
+q10=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, Estres), fill=Diabetico))+  
+  labs(x = "Estres ", title='Estres')
+q11=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, NivelBP), fill=Diabetico))+  
+  labs(x = "NivelBP ", title='NivelBP')
+q12=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, Pdiabetes), fill=Diabetico))+  
+  labs(x = "Pdiabetes ", title='Pdiabetes')
+q13=ggplot(data = diabetes) +
+  geom_mosaic(aes(x = product(Diabetico, FrecuenciaUrinaria), fill=Diabetico))+  labs(x = "FrecuenciaUrinaria ", title='FrecuenciaUrinaria')
+grid.arrange(q8, q9, q10, q11, q12, q13, nrow = 3, ncol=2)
+```
+
+En este caso, la variable *Medicina Regular* está relacionada con la diabetes, como es lógico, al igual que la variable *NivelBP*, que nos arroja unos resultados similares a la variable *BPAlto*.
+En el resto de variables, una vez más, no hay nada digno de mención.
+
+Tambien podemos realizar algún gráfico multivariante.
+
+```{r warning=FALSE}
+library(GGally)
+library(ggplot2)
+ggpairs(diabetes[,Classes=="numeric"])+ theme_bw()
+```
+
+## Predicción del BMI y variables que influyen en el mismo. 
+
+En cuanto al modelo para predecir el IBM, realizamos lo siguiente:
+
+```{r}
+modIBM=lm(IBM ~ ., data=diabetes)
+summary(modIBM)
+```
+
+Observamos que hay variables muy significativas, como la edad, si hay antecedentes de diabetes en la familia, la falta de ejercicio, si orina a menudo o si presenta diabetes.
+Ahora realizamos lo mismo pero con el logaritmo de la variable *IBM*.
+
+``` {r}
+modIBM2=lm(log(IBM) ~ ., data=diabetes)
+summary(modIBM2)
+```
+
+Nos da unos resultados similares.Podemos realizar un gráfico para representar los valores observados frente a los valores ajustados.
+
+```{r}
+plot(diabetes$IBM, modIBM$fitted.values)
+
+```
+
+Obtenemos el coeficiente de determinación R\^2, que sería el cuadrado del coeficiente de correlación entre los valores ajustados y los observados.
+
+```{r}
+cor(diabetes$IBM, modIBM$fitted.values)^2
+```
+
+Hecho esto, dividimos el conjunto de datos en dos partes, una para entrenar el modelo, con el 70% de los individuos y otra para validarlo con los restantes, el 30%.
+Seleccionamos una semilla para que salgan siempre los mismos resultados, en este caso es mi cumpleaños.
+
+```{r}
+tr=round(nrow(diabetes)*0.7)
+set.seed(23111998)
+muestra=sample.int(nrow(diabetes), tr)
+Train.diab=diabetes[muestra,]
+Val.diab=diabetes[-muestra,]
+```
+
+Tenemos el conjunto **Train.diab**, que usaremos para ajustar el modelo.
+
+```{r}
+modIBMTrain=lm(IBM ~ ., data=Train.diab)
+summary(modIBMTrain)
+```
+
+Nos da una R\^2 similiar a la del modelo completo, aunque algo más elevada.
+Finalmente, usaremos el modelo para predecir la muestra de validación y realizamos otro gráfico que muestre las predicciones frente a los valores reales.
+
+```{r}
+val.fitted=predict(modIBMTrain, newdata=Val.diab, se.fit = TRUE)
+plot(Val.diab$IBM, val.fitted$fit)
+```
+
+Podemos observar que, si bien hay algunos puntos que si han tenido una buena predicción, no se ajusta mucho a los valores reales.
+Nos aseguramos mirando la R\^2.
+
+```{r}
+cor(Val.diab$IBM, val.fitted$fit)^2
+```
+
+Nos da 0,15; un valor que no se asemeja al valor original, por lo que no es un buen modelo predictivo.
+
+## Predicción de la diabetes (binaria) y variables que influyen en la misma.
+
+Para este apartado, es necesario convertir las variables nominales en variables binarias.
+Esto quiere decir que, por ejemplo, la variable *Genero* ha pasado a ser *GeneroHombre* por lo que si vale 1 es que el individuo es un hombre y si vale 0 es mujer.
+POr otra parte, la variable *Actividad* pasa a ser *Actividad +30min*, *ActividadNada* o *Actividad1h*.
+Estas variables valen 1 cuando el tipo coincide y cero en caso contrario.
+Si no hay ningún 1, es que la categoría es *Actividad-30min*
+
+```{r}
+X=model.matrix(Diabetico~., data=diabetes)
+head(X)
+```
+
+Hecho esto, dividimos una vez más el conjunto en dos partes, la de entrenamiento y la de validación.
+La semilla vuelve a ser mi cumpleaños.
+
+```{r}
+tr=round(nrow(diabetes)*0.7)
+set.seed(23111998)
+muestra=sample.int(nrow(diabetes), tr)
+Train.diab=diabetes[muestra,]
+Val.diab=diabetes[-muestra,]
+```
+
+Vamos a ajustar primero el modelo para interpretar los parámetros.Normalmente en la forma estadística tradicional ajustamos el modelo completo a todos los datos sin separar los conjuntos de entrenamiento y validación.
+
+```{r}
+gfit1=glm(Diabetico~., data=diabetes, family=binomial)
+summary(gfit1)
+```
+
+Podemos observar que son significativos los valores para las variables *Edad60 o mas*, *EdadMenos de 40*, *D.FamiliarSi*, *ActividadNada*, *Actividad1h*, *MedicinaRegularSi*, *NivelBPNormal* y *PdiabetesSi*.
+Ahora ajustamos el modelo con la constante, es decir, el modelo nulo.
+
+```{r}
+gfit0=glm(Diabetico~1, data=diabetes, family=binomial)
+```
+
+Y ahora los comparamos entre sí con una ANOVA.
+
+```{r}
+anova(gfit0, gfit1, test = "Chisq")
+```
+
+Nos da un p-valor de 2.2e-16, es decir, es altamente significativo.El modelo con todas las variables es mucho mejor que el modelo que tiene sólo la constante.
+
+```{r}
+gfit2=glm(Diabetico~., data=Train.diab, family=binomial)
+cbind(gfit1$coefficients, gfit2$coefficients)
+```
+
+Ahora procedemos a realizar la predicción.
+
+```{r}
+p=predict(gfit2, Val.diab, type="response") 
+PredTarget=as.factor(p>0.5)
+levels(PredTarget)=c("No", "Si")
+library(caret)
+matrizLogis<-confusionMatrix(Val.diab$Diabetico, PredTarget)
+matrizLogis
+```
+
+Presenta una precisión del 85%.
+También podemos observar la sensibilidad y la especificidad.
+La sensibilidad es la probabilidad de que la prueba identifique como enfermo a aquél que efectivamente lo está, en este caso es del 90%, bastante buena.
+La especificidad es la probabilidad de que calificar como no enfermo a alguien que no lo esté, en este caso es del 76%.
+Vemos que son unos resultados bastante buenos.
+
+Ahora ajustamos el modelo para nuestros datos con el SVM con kernel *radial*, que es el que hace por defecto.
+
+```{r}
+library(e1071)
+fitsvm1 <-svm(Diabetico ~., data = Train.diab)
+summary(fitsvm1)
+
+predictedSVM = predict(fitsvm1,Val.diab)
+matrizSVM1<-confusionMatrix(Val.diab$Diabetico, predictedSVM)
+matrizSVM1
+```
+
+En este modelo la precisión es del 90%.
+La sensibilidad es del 92% y la especificidad es del 86%.
+Estos resultados son mejores que en el modelo anterior, el de regresión logística.
+Probamos con otros kernel.
+
+```{r}
+fitsvm2 <-svm(Diabetico ~., data = Train.diab, kernel="polynomial")
+predictedSVM = predict(fitsvm2,Val.diab)
+matrizSVM2<-confusionMatrix(Val.diab$Diabetico, predictedSVM)
+matrizSVM2
+```
+
+En este caso, usando el kernel polinomial, observamos que la precision y sensibilidad han bajado, aunque la especificidad ha subido hasta el 100%, es decir, que todos los inidividuos sanos han sido calificados como tal.
+
+```{r}
+fitsvm3 <-svm(Diabetico ~., data = Train.diab, kernel="sigmoid")
+predictedSVM = predict(fitsvm3,Val.diab)
+matrizSVM3<-confusionMatrix(Val.diab$Diabetico, predictedSVM)
+matrizSVM3
+```
+
+Finalmente, con el kernel sigmoidal, nos da una precisión de 84%, con una sensibilidad del 87% y una especificidad del 77%.
+Tambien peores que los anteriores.
+Ahora pondremos la precisión de cada modelo para ver cuales son los mejores.
+
+```{r}
+Accuracy=c(matrizLogis$overall[1], matrizSVM1$overall[1], matrizSVM2$overall[1],matrizSVM3$overall[1])
+names(Accuracy)=c("Logística","SVM-radial", "SVM-polynomial", "SVM-sigmoid")
+Accuracy
+```
+
+Observamos que el modelo con mejor precisión es el radial y el que tiene peor precisión es el polinomial.
+
+## Conclusiones.
+
+Como conclusión, observando los gráficos oportunos, podemos afirmar que la presencia de diabetes parece estar relacionada con niveles altos de BP. Tambien esta relacionada con las variables *MedicinaRegular*, ya que los diabéticos tienen que medicarse regularmente y *Edad*, por lo que es probable que la diabetes surja con la misma. El resto de variables no presentan mucha mas relación, si acaso la variable *Actividad*, que indica que las personas que no realizan deporte presentan mas casos de diabetes, si bien no es algo destacable.
+
+En cuanto al modelo de predicción de IBM, podemos ver que hay variables muy significativas, como la edad, si hay antecedentes de diabetes en la familia, la falta de ejercicio, si orina a menudo o si presenta diabetes. Sin embargo, el modelo predictivo no era muy bueno.
+
+Finalmente, se ha realizado el modelo para la predicción de diabetes. En este modelo se ha probado la predicción mediante la Regresión Logarítmica y usando SVM con diversos kernel. Los resultados en general han sido bastante buenos, con porcentajes de precisión, sensibilidad y especificidad bastante elevados, por encima del 75% en todos los casos. El modelo que mejores resultados ha obtenido ha sido el SVM con kernel radial.
